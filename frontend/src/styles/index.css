@@ -1,0 +1,64 @@
+@import 'tailwindcss';
+
+/* Design tokens taken from design/design.png. Components use only these names. */
+@theme {
+  --font-sans: 'Onest', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-canvas: #f6f0e7;
+  --color-surface: #fffcf7;
+  --color-surface-muted: #f3ebe0;
+  --color-line: #ece2d4;
+  --color-skeleton: #ede3d6;
+
+  --color-ink: #2b1d14;
+  --color-ink-soft: #5c4a3c;
+  --color-muted: #8c7b6b;
+  --color-on-dark: #fff8f1;
+
+  --color-espresso: #2b1d14;
+  --color-latte: #8b5e3c;
+  --color-accent: #e8572a;
+  --color-accent-hover: #d14a20;
+  --color-accent-soft: #fbe3d9;
+
+  --color-success: #2f7a47;
+  --color-success-soft: #e2f0e3;
+  --color-warning: #c2461f;
+  --color-warning-soft: #fbe1d6;
+  --color-danger: #b42318;
+  --color-danger-soft: #fde8e6;
+
+  --color-heat-0: #f1e8dc;
+  --color-heat-1: #e5cba6;
+  --color-heat-2: #c99a6b;
+  --color-heat-3: #9a6440;
+  --color-heat-4: #5a3220;
+
+  --radius-card: 1.75rem;
+  --shadow-card: 0 1px 2px rgb(60 40 20 / 0.04), 0 8px 24px -12px rgb(60 40 20 / 0.08);
+
+  --animate-progress: progress 1.2s ease-in-out infinite;
+
+  @keyframes progress {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(250%);
+    }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+}
