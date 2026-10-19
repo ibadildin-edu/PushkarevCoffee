@@ -33,7 +33,7 @@ class SeedStats:
     order_items: int
 
 
-def _poisson(rng: random.Random, lam: float) -> int:
+def poisson(rng: random.Random, lam: float) -> int:
     """Knuth's algorithm; fine for the small rates used here."""
     if lam <= 0:
         return 0
@@ -138,7 +138,7 @@ def _generate_orders(
                     break
                 evening = seed.evening_factor if hour >= 18 else 1.0
                 lam = seed.base_per_hour * data.HOURLY_PROFILE[hour] * evening * day_factor
-                for _ in range(_poisson(rng, lam)):
+                for _ in range(poisson(rng, lam)):
                     created_at = hour_start + timedelta(seconds=rng.randrange(3600))
                     if created_at > now:
                         continue

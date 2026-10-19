@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -7,13 +8,18 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1 import api_router
 from app.core.config import settings
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
+from app.services import simulator
 from app.services.errors import ServiceError
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    stop = asyncio.Event()
+    simulator_task = asyncio.create_task(simulator.run(SessionLocal, stop))
     yield
+    stop.set()
+    await simulator_task
     await engine.dispose()
 
 

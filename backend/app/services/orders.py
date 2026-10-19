@@ -1,11 +1,23 @@
 from typing import Any
 
-from sqlalchemy import ColumnElement, UnaryExpression, exists, func, select
+from sqlalchemy import (
+    ColumnElement,
+    String,
+    UnaryExpression,
+    case,
+    cast,
+    exists,
+    func,
+    literal,
+    literal_column,
+    select,
+)
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.period import local_day_start_utc, local_range_utc
-from app.models import Location, Order, OrderItem
+from app.core.period import local_day_start_utc, local_range_utc, local_today
+from app.models import Location, Order, OrderItem, OrderStatus, Product
 from app.schemas.common import Page
 from app.schemas.order import (
     OrderFilters,
@@ -14,6 +26,9 @@ from app.schemas.order import (
     OrderLocation,
     OrderRead,
     OrderSort,
+    RecentOrder,
+    RecentOrdersRead,
+    TodayStats,
 )
 from app.services.errors import NotFoundError
 
@@ -83,6 +98,74 @@ async def list_orders(session: AsyncSession, filters: OrderFilters) -> Page[Orde
         for order, location_name in rows
     ]
     return Page(items=items, total=total, page=filters.page, page_size=filters.page_size)
+
+
+async def list_recent_orders(
+    session: AsyncSession, location_id: int | None, limit: int
+) -> RecentOrdersRead:
+    """Live feed: newest orders of any status plus today's totals."""
+    location_filter = [Order.location_id == location_id] if location_id is not None else []
+
+    latest = (
+        select(Order.id)
+        .where(*location_filter)
+        .order_by(Order.created_at.desc(), Order.id.desc())
+        .limit(limit)
+        .scalar_subquery()
+    )
+    line = Product.name + case(
+        (OrderItem.quantity > 1, literal(" ×") + cast(OrderItem.quantity, String)), else_=""
+    )
+    summaries = (
+        select(
+            OrderItem.order_id,
+            func.string_agg(line, aggregate_order_by(literal_column("', '"), OrderItem.id)).label(
+                "items_summary"
+            ),
+        )
+        .join(Product, Product.id == OrderItem.product_id)
+        .where(OrderItem.order_id.in_(latest))
+        .group_by(OrderItem.order_id)
+        .subquery()
+    )
+    rows = (
+        await session.execute(
+            select(Order, Location.name, summaries.c.items_summary)
+            .join(Location, Location.id == Order.location_id)
+            .join(summaries, summaries.c.order_id == Order.id)
+            .order_by(Order.created_at.desc(), Order.id.desc())
+        )
+    ).all()
+
+    today = local_today()
+    start, end = local_range_utc(today, today)
+    today_orders, today_revenue = (
+        await session.execute(
+            select(func.count(Order.id), func.coalesce(func.sum(Order.total_amount), 0)).where(
+                Order.created_at >= start,
+                Order.created_at < end,
+                Order.status != OrderStatus.cancelled,
+                *location_filter,
+            )
+        )
+    ).one()
+
+    return RecentOrdersRead(
+        items=[
+            RecentOrder(
+                id=order.id,
+                number=order.number,
+                created_at=order.created_at,
+                status=order.status,
+                total_amount=order.total_amount,
+                location_id=order.location_id,
+                location_name=location_name,
+                items_summary=items_summary,
+            )
+            for order, location_name, items_summary in rows
+        ],
+        today=TodayStats(orders=int(today_orders), revenue=int(today_revenue)),
+    )
 
 
 async def get_order(session: AsyncSession, order_id: int) -> OrderRead:

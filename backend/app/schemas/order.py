@@ -76,3 +76,27 @@ class OrderRead(BaseModel):
     items_count: int
     location: OrderLocation
     items: list[OrderItemRead]
+
+
+class RecentOrder(BaseModel):
+    id: int
+    number: int
+    created_at: datetime
+    status: OrderStatus
+    total_amount: int
+    location_id: int
+    location_name: str
+    # "Раф ванильный, Латте ×2"
+    items_summary: str
+
+
+class TodayStats(BaseModel):
+    """Today (Asia/Almaty), cancelled orders excluded."""
+
+    orders: int
+    revenue: int
+
+
+class RecentOrdersRead(BaseModel):
+    items: list[RecentOrder]
+    today: TodayStats
