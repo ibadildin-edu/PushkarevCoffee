@@ -15,11 +15,20 @@ interface CardHeaderProps {
   title: ReactNode;
   subtitle?: ReactNode;
   aside?: ReactNode;
+  /** Stack the aside under the title on narrow screens. */
+  wrap?: boolean;
 }
 
-export function CardHeader({ title, subtitle, aside }: CardHeaderProps) {
+export function CardHeader({ title, subtitle, aside, wrap }: CardHeaderProps) {
   return (
-    <header className="mb-4 flex items-start justify-between gap-4">
+    <header
+      className={cn(
+        'mb-4 flex gap-4',
+        wrap
+          ? 'flex-col md:flex-row md:items-start md:justify-between'
+          : 'items-start justify-between',
+      )}
+    >
       <div className="min-w-0">
         <h2 className="text-lg font-semibold text-ink">{title}</h2>
         {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}

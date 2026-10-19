@@ -1,7 +1,7 @@
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 
-import { formatDate, formatMoney, formatMoneyCompact, formatNumber } from '../../shared/lib/format';
-import { parsePositiveInt } from '../../shared/lib/searchParams';
+import { formatDate, formatDayMonth } from '../../shared/lib/format';
+import { parseEnum, parsePositiveInt, withParams } from '../../shared/lib/searchParams';
 import { PageHeader, PageHeaderSkeleton } from '../../shared/layout/PageHeader';
 import { ButtonLink } from '../../shared/ui/Button';
 import { Card, CardHeader } from '../../shared/ui/Card';
@@ -10,8 +10,15 @@ import { LoadingRegion, Skeleton } from '../../shared/ui/Skeleton';
 import { EmptyState, ErrorState, NotFoundState, QueryErrorState } from '../../shared/ui/States';
 import { useGetOrdersQuery } from '../orders/api';
 import { OrdersTable } from '../orders/components/OrdersTable';
-import { useGetLocationQuery, useGetLocationsQuery } from './api';
-import { KpiStat } from './components/KpiStat';
+import { CategoryDonut } from '../dashboard/components/CategoryDonut';
+import { KpiCards } from '../dashboard/components/KpiCards';
+import { LoadHeatmap } from '../dashboard/components/LoadHeatmap';
+import { PeriodSwitcher } from '../dashboard/components/PeriodSwitcher';
+import { RevenueChart } from '../dashboard/components/RevenueChart';
+import { TopProductsList } from '../dashboard/components/TopProductsList';
+import { analyticsArgs } from '../dashboard/live';
+import { initialFiltersState, PERIODS, type Period } from '../filters/filtersSlice';
+import { useGetLocationQuery } from './api';
 
 const NOT_FOUND = {
   title: 'Точка не найдена',
@@ -21,6 +28,7 @@ const NOT_FOUND = {
 };
 
 const RECENT_ORDERS_LIMIT = 10;
+const PERIOD_VALUES = PERIODS.map(String);
 
 function BackLink() {
   return (
@@ -31,38 +39,6 @@ function BackLink() {
       <ArrowLeftIcon width={16} height={16} />
       Все точки
     </Link>
-  );
-}
-
-function LocationKpi({ locationId }: { locationId: number }) {
-  // KPI comes with the list endpoint; it is usually already cached from the Locations page.
-  const { kpi, isLoading, isError } = useGetLocationsQuery(undefined, {
-    selectFromResult: ({ data, isLoading, isError }) => ({
-      kpi: data?.find((location) => location.id === locationId)?.kpi_30d,
-      isLoading,
-      isError,
-    }),
-  });
-
-  if (isError) return null;
-
-  return (
-    <Card>
-      <CardHeader title="Показатели за 30 дней" />
-      <dl className="grid gap-3 sm:grid-cols-3">
-        {isLoading || !kpi ? (
-          Array.from({ length: 3 }, (_, index) => (
-            <Skeleton key={index} className="h-16 rounded-2xl" />
-          ))
-        ) : (
-          <>
-            <KpiStat label="Выручка" value={formatMoneyCompact(kpi.revenue)} />
-            <KpiStat label="Заказы" value={formatNumber(kpi.orders)} />
-            <KpiStat label="Средний чек" value={formatMoney(kpi.avg_check)} />
-          </>
-        )}
-      </dl>
-    </Card>
   );
 }
 
@@ -102,6 +78,10 @@ function LocationRecentOrders({ locationId }: { locationId: number }) {
 export function LocationPage() {
   const params = useParams();
   const locationId = parsePositiveInt(params.id ?? null);
+  // The page has its own period (?period=30), independent of the dashboard filters.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const periodParam = parseEnum(searchParams.get('period'), PERIOD_VALUES);
+  const period = (periodParam ? Number(periodParam) : initialFiltersState.period) as Period;
   const {
     data: location,
     error,
@@ -140,20 +120,40 @@ export function LocationPage() {
     );
   }
 
+  const args = analyticsArgs(period, location.id);
+
   return (
     <>
       <PageHeader
         eyebrow={<BackLink />}
         title={location.name}
-        subtitle={`${location.address} · открыта ${formatDate(location.opened_at)}`}
+        subtitle={`${location.address} · открыта ${formatDate(location.opened_at)} · ${formatDayMonth(args.date_from)} — ${formatDate(args.date_to)}`}
         actions={
-          <ButtonLink to={`/?location=${location.id}`} variant="secondary">
-            Открыть на дашборде
-          </ButtonLink>
+          <>
+            <PeriodSwitcher
+              value={period}
+              onChange={(next) =>
+                setSearchParams(withParams(searchParams, { period: next }), { replace: true })
+              }
+            />
+            <ButtonLink
+              to={`/?period=${period}&location=${location.id}`}
+              variant="secondary"
+              className="h-12"
+            >
+              Открыть на дашборде
+            </ButtonLink>
+          </>
         }
       />
       <div className="flex flex-col gap-5">
-        <LocationKpi locationId={location.id} />
+        <KpiCards args={args} />
+        <RevenueChart args={args} />
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+          <TopProductsList args={args} />
+          <CategoryDonut args={args} />
+        </div>
+        <LoadHeatmap args={args} />
         <LocationRecentOrders locationId={location.id} />
       </div>
     </>

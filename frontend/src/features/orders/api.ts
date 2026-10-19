@@ -1,5 +1,12 @@
 import { baseApi } from '../../api/baseApi';
-import type { Order, OrderListItem, OrderSort, OrderStatus, Page } from '../../api/types';
+import type {
+  Order,
+  OrderListItem,
+  OrderSort,
+  OrderStatus,
+  Page,
+  RecentOrders,
+} from '../../api/types';
 
 export interface OrdersQueryArgs {
   page: number;
@@ -21,6 +28,10 @@ const ordersApi = baseApi.injectEndpoints({
       query: (params) => ({ url: '/orders', params }),
       providesTags: [{ type: 'Orders', id: 'LIST' }],
     }),
+    getRecentOrders: build.query<RecentOrders, { location_id?: number; limit?: number }>({
+      query: (params) => ({ url: '/orders/recent', params }),
+      providesTags: [{ type: 'Orders', id: 'RECENT' }],
+    }),
     getOrder: build.query<Order, number>({
       query: (id) => `/orders/${id}`,
       providesTags: (_result, _error, id) => [{ type: 'Orders', id }],
@@ -28,4 +39,4 @@ const ordersApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useGetOrdersQuery, useGetOrderQuery } = ordersApi;
+export const { useGetOrdersQuery, useGetRecentOrdersQuery, useGetOrderQuery } = ordersApi;

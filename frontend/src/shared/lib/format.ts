@@ -1,4 +1,4 @@
-import { APP_TIME_ZONE, parseIsoDate } from './dates';
+import { APP_TIME_ZONE, isoWeekday, parseIsoDate, WEEKDAYS_SHORT } from './dates';
 
 const LOCALE = 'ru-RU';
 const NBSP = ' ';
@@ -35,6 +35,12 @@ export function formatMoneyCompact(value: number): string {
   return `${compactFormat.format(value).replace(/\.$/, '')}${NBSP}₸`;
 }
 
+/** 800 000 → «800 тыс», 1 200 000 → «1,2 млн». For axis ticks. */
+export function formatNumberCompact(value: number): string {
+  if (Math.abs(value) < 10_000) return formatNumber(value);
+  return compactFormat.format(value).replace(/\.$/, '');
+}
+
 /** 2 → «2,0 %». Takes a value in percent, not a fraction. */
 export function formatPercent(value: number): string {
   return percentFormat.format(value / 100);
@@ -62,6 +68,11 @@ export function formatDate(isoDate: string): string {
   return `${dayMonth(date, 'UTC')} ${date.getUTCFullYear()}`;
 }
 
+/** '2026-10-12' → «Пн, 12 окт» */
+export function formatWeekdayDate(isoDate: string): string {
+  return `${WEEKDAYS_SHORT[isoWeekday(isoDate)]}, ${formatDayMonth(isoDate)}`;
+}
+
 /** UTC timestamp → «16:36» in Asia/Almaty */
 export function formatTime(isoDateTime: string): string {
   return timeFormat.format(new Date(isoDateTime));
@@ -71,6 +82,11 @@ export function formatTime(isoDateTime: string): string {
 export function formatDateTime(isoDateTime: string): string {
   const date = new Date(isoDateTime);
   return `${dayMonth(date, APP_TIME_ZONE)}, ${timeFormat.format(date)}`;
+}
+
+/** 16 → «16%» for shares shown without decimals. */
+export function formatShare(value: number): string {
+  return `${numberFormat.format(Math.round(value))}%`;
 }
 
 /** 3 → «3 позиции» */

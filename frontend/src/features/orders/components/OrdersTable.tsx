@@ -1,11 +1,45 @@
 import { Link, useNavigate } from 'react-router';
 
-import type { OrderListItem } from '../../../api/types';
+import type { OrderListItem, OrderSort } from '../../../api/types';
 import { cn } from '../../../shared/lib/cn';
 import { formatDateTime, formatMoney, formatNumber } from '../../../shared/lib/format';
 import { Badge } from '../../../shared/ui/Badge';
 import { Table, TableSkeletonRows, Td, Th } from '../../../shared/ui/Table';
 import { OrderStatusBadge } from './OrderStatusBadge';
+
+type SortField = 'number' | 'created_at' | 'total_amount';
+
+interface SortableThProps {
+  field: SortField;
+  sort: OrderSort | undefined;
+  onSortChange: ((sort: OrderSort) => void) | undefined;
+  className?: string;
+  children: string;
+}
+
+/** Click: descending first, then ascending. Plain header when sorting is not wired. */
+function SortableTh({ field, sort, onSortChange, className, children }: SortableThProps) {
+  if (!onSortChange) return <Th className={className}>{children}</Th>;
+  const direction = sort === field ? 'ascending' : sort === `-${field}` ? 'descending' : 'none';
+  const next: OrderSort = direction === 'descending' ? field : `-${field}`;
+  return (
+    <Th className={className} aria-sort={direction}>
+      <button
+        type="button"
+        onClick={() => onSortChange(next)}
+        className={cn(
+          'inline-flex items-center gap-1 uppercase hover:text-ink',
+          direction !== 'none' && 'text-ink',
+        )}
+      >
+        {children}
+        <span aria-hidden="true" className="w-3">
+          {direction === 'ascending' ? '↑' : direction === 'descending' ? '↓' : ''}
+        </span>
+      </button>
+    </Th>
+  );
+}
 
 interface OrdersTableProps {
   orders: OrderListItem[] | undefined;
@@ -14,6 +48,8 @@ interface OrdersTableProps {
   isRefreshing?: boolean;
   showLocation?: boolean;
   skeletonRows?: number;
+  sort?: OrderSort;
+  onSortChange?: (sort: OrderSort) => void;
 }
 
 export function OrdersTable({
@@ -22,7 +58,10 @@ export function OrdersTable({
   isRefreshing,
   showLocation = true,
   skeletonRows,
+  sort,
+  onSortChange,
 }: OrdersTableProps) {
+  const sortProps = { sort, onSortChange };
   const navigate = useNavigate();
   const columns = showLocation ? 6 : 5;
 
@@ -30,11 +69,17 @@ export function OrdersTable({
     <Table aria-busy={isLoading || isRefreshing}>
       <thead>
         <tr>
-          <Th>Заказ</Th>
-          <Th>Время</Th>
+          <SortableTh field="number" {...sortProps}>
+            Заказ
+          </SortableTh>
+          <SortableTh field="created_at" {...sortProps}>
+            Время
+          </SortableTh>
           {showLocation && <Th>Точка</Th>}
           <Th className="text-right">Позиций</Th>
-          <Th className="text-right">Сумма</Th>
+          <SortableTh field="total_amount" className="text-right" {...sortProps}>
+            Сумма
+          </SortableTh>
           <Th>Статус</Th>
         </tr>
       </thead>

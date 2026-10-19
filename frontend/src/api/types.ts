@@ -88,3 +88,115 @@ export interface Order {
   location: { id: number; name: string };
   items: OrderItem[];
 }
+
+export interface RecentOrder {
+  id: number;
+  number: number;
+  created_at: string;
+  status: OrderStatus;
+  total_amount: number;
+  location_id: number;
+  location_name: string;
+  items_summary: string;
+}
+
+export interface RecentOrders {
+  items: RecentOrder[];
+  today: { orders: number; revenue: number };
+}
+
+export interface ProductCreate {
+  name: string;
+  category_id: number;
+  price: number;
+  is_active: boolean;
+}
+
+export type ProductUpdate = Partial<ProductCreate>;
+
+export interface SimulatorState {
+  enabled: boolean;
+}
+
+// Analytics. Percentages are in percent (2.5 = 2,5 %); delta is null without previous data.
+
+export interface Metric {
+  value: number;
+  prev: number;
+  delta_pct: number | null;
+}
+
+export interface BestProduct {
+  product_id: number;
+  name: string;
+  quantity: number;
+  share: number;
+  prev: number;
+  delta_pct: number | null;
+}
+
+export interface Kpi {
+  revenue: Metric;
+  orders: Metric;
+  avg_check: Metric;
+  best_product: BestProduct | null;
+}
+
+export interface RevenuePoint {
+  date: string;
+  revenue: number;
+  orders: number;
+  prev_revenue: number;
+}
+
+export interface RevenueDaily {
+  points: RevenuePoint[];
+  avg: number;
+  max: { date: string; value: number } | null;
+  prev_date_from: string;
+  prev_date_to: string;
+}
+
+export interface TopProduct {
+  product_id: number;
+  name: string;
+  category: string;
+  category_color: string;
+  quantity: number;
+  revenue: number;
+}
+
+export interface HeatmapCell {
+  /** ISO weekday, 1 = Monday. */
+  weekday: number;
+  hour: number;
+  avg_orders: number;
+}
+
+export interface Heatmap {
+  cells: HeatmapCell[];
+  peak: HeatmapCell | null;
+}
+
+export interface CategoryShare {
+  category_id: number;
+  name: string;
+  color: string;
+  quantity: number;
+  revenue: number;
+  share: number;
+}
+
+export interface CategoryShares {
+  items: CategoryShare[];
+  total_quantity: number;
+}
+
+export interface LocationComparison {
+  location_id: number;
+  name: string;
+  revenue: number;
+  orders: number;
+  avg_check: number;
+  delta_pct: number | null;
+}

@@ -1,38 +1,58 @@
-import { ButtonLink } from '../../shared/ui/Button';
-import { BagIcon, ReceiptIcon, StarIcon, WalletIcon } from '../../shared/ui/icons';
+import { useEffect } from 'react';
+
+import type { FiltersState } from '../filters/filtersSlice';
 import { useDashboardFilters } from '../filters/useDashboardFilters';
+import { useSetSimulatorMutation } from './api';
+import { CategoryDonut } from './components/CategoryDonut';
 import { DashboardHeader } from './components/DashboardHeader';
-import { WidgetPlaceholder } from './components/WidgetPlaceholder';
+import { KpiCards } from './components/KpiCards';
+import { LoadHeatmap } from './components/LoadHeatmap';
+import { LocationsComparison } from './components/LocationsComparison';
+import { RecentOrdersFeed } from './components/RecentOrdersFeed';
+import { RevenueChart } from './components/RevenueChart';
+import { TopProductsList } from './components/TopProductsList';
+import { analyticsArgs } from './live';
 
 export function DashboardPage() {
   const [filters, updateFilters] = useDashboardFilters();
-  const ordersLink = filters.locationId ? `/orders?location_id=${filters.locationId}` : '/orders';
+  const [setSimulator, simulator] = useSetSimulatorMutation();
+  const args = analyticsArgs(filters.period, filters.locationId);
+  const { live } = filters;
+
+  // Live on (also when opened via a ?live=1 link) starts the server-side order simulator.
+  useEffect(() => {
+    if (live) void setSimulator({ enabled: true });
+  }, [live, setSimulator]);
+
+  const changeFilters = (patch: Partial<FiltersState>) => {
+    if (patch.live === false) void setSimulator({ enabled: false });
+    updateFilters(patch);
+  };
 
   return (
     <>
-      <DashboardHeader filters={filters} onChange={updateFilters} />
+      <DashboardHeader filters={filters} onChange={changeFilters} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="flex min-w-0 flex-col gap-5">
-          <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
-            <WidgetPlaceholder title="Выручка" icon={<WalletIcon />} />
-            <WidgetPlaceholder title="Заказы" icon={<BagIcon />} />
-            <WidgetPlaceholder title="Средний чек" icon={<ReceiptIcon />} />
-            <WidgetPlaceholder title="Лучшая позиция" icon={<StarIcon />} />
+          <KpiCards args={args} live={live} />
+          <RevenueChart args={args} live={live} />
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+            <TopProductsList args={args} live={live} />
+            <CategoryDonut args={args} live={live} />
           </div>
-          <WidgetPlaceholder title="Выручка по дням" bodyClassName="h-72" />
-          <div className="grid gap-5 lg:grid-cols-2">
-            <WidgetPlaceholder title="Топ-10 позиций" bodyClassName="h-64" />
-            <WidgetPlaceholder title="Доли категорий" bodyClassName="h-64" />
-          </div>
-          <WidgetPlaceholder title="Загрузка по часам" bodyClassName="h-64" />
+          <LoadHeatmap args={args} live={live} />
+          <LocationsComparison args={args} selectedId={filters.locationId} live={live} />
         </div>
 
-        <aside className="flex flex-col gap-5">
-          <WidgetPlaceholder title="Последние заказы" bodyClassName="h-96" />
-          <ButtonLink to={ordersLink} variant="secondary" className="w-full">
-            Все заказы →
-          </ButtonLink>
+        <aside className="min-w-0">
+          <div className="xl:sticky xl:top-6">
+            <RecentOrdersFeed
+              locationId={filters.locationId}
+              live={live}
+              liveError={live && simulator.isError ? 'Симулятор недоступен' : undefined}
+            />
+          </div>
         </aside>
       </div>
     </>

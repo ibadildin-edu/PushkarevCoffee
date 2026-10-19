@@ -1,8 +1,7 @@
 import { useSearchParams } from 'react-router';
 
-import { ORDER_STATUSES } from '../../api/types';
 import { formatNumber, pluralize } from '../../shared/lib/format';
-import { parseEnum, parsePositiveInt, withParams } from '../../shared/lib/searchParams';
+import { withParams } from '../../shared/lib/searchParams';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { Button } from '../../shared/ui/Button';
 import { Card } from '../../shared/ui/Card';
@@ -10,37 +9,31 @@ import { Pagination } from '../../shared/ui/Pagination';
 import { Skeleton } from '../../shared/ui/Skeleton';
 import { EmptyState, ErrorState } from '../../shared/ui/States';
 import { useGetOrdersQuery } from './api';
-import { OrdersFilters, type OrdersFilterValues } from './components/OrdersFilters';
+import { OrdersFilters } from './components/OrdersFilters';
 import { OrdersTable } from './components/OrdersTable';
+import { DEFAULT_SORT, hasOrdersFilters, parseOrdersSearch, withOrdersFilters } from './urlFilters';
 
 const PAGE_SIZE = 20;
 
 export function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const page = parsePositiveInt(searchParams.get('page')) ?? 1;
-  const filters: OrdersFilterValues = {
-    status: parseEnum(searchParams.get('status'), ORDER_STATUSES),
-    locationId: parsePositiveInt(searchParams.get('location_id')),
-  };
+  const { filters, page, sort } = parseOrdersSearch(searchParams);
+  const filtered = hasOrdersFilters(filters);
 
   const { data, error, isLoading, isFetching, isError, refetch } = useGetOrdersQuery({
     page,
     page_size: PAGE_SIZE,
-    status: filters.status,
+    sort,
+    date_from: filters.dateFrom,
+    date_to: filters.dateTo,
     location_id: filters.locationId,
+    status: filters.status,
+    product_id: filters.productId,
+    min_total: filters.minTotal,
+    max_total: filters.maxTotal,
   });
 
-  const changeFilters = (patch: OrdersFilterValues) => {
-    const next = { ...filters, ...patch };
-    // Any filter change starts from the first page.
-    setSearchParams(
-      withParams(searchParams, {
-        status: next.status,
-        location_id: next.locationId,
-        page: undefined,
-      }),
-    );
-  };
+  const resetFilters = () => setSearchParams(withOrdersFilters(new URLSearchParams(), {}));
 
   const changePage = (nextPage: number) => {
     setSearchParams(withParams(searchParams, { page: nextPage > 1 ? nextPage : undefined }));
@@ -48,7 +41,7 @@ export function OrdersPage() {
   };
 
   const subtitle = data ? (
-    `${formatNumber(data.total)} ${pluralize(data.total, ['заказ', 'заказа', 'заказов'])}`
+    `${formatNumber(data.total)} ${pluralize(data.total, ['заказ', 'заказа', 'заказов'])}${filtered ? ' по фильтрам' : ''}`
   ) : isError ? (
     'История заказов всех точек'
   ) : (
@@ -57,16 +50,12 @@ export function OrdersPage() {
 
   return (
     <>
-      <PageHeader
-        title="Заказы"
-        subtitle={subtitle}
-        actions={
-          <OrdersFilters
-            value={filters}
-            onChange={changeFilters}
-            onReset={() => setSearchParams(new URLSearchParams())}
-          />
-        }
+      <PageHeader title="Заказы" subtitle={subtitle} />
+      <OrdersFilters
+        value={filters}
+        onApply={(next) => setSearchParams(withOrdersFilters(searchParams, next))}
+        onReset={resetFilters}
+        canReset={filtered}
       />
       <Card>
         {isError ? (
@@ -80,9 +69,17 @@ export function OrdersPage() {
                 : 'Под выбранные фильтры ничего не подходит. Попробуйте изменить их.'
             }
             action={
-              <Button variant="secondary" onClick={() => setSearchParams(new URLSearchParams())}>
-                Сбросить фильтры
-              </Button>
+              data.total > 0 ? (
+                <Button variant="secondary" onClick={() => changePage(1)}>
+                  На первую страницу
+                </Button>
+              ) : (
+                filtered && (
+                  <Button variant="secondary" onClick={resetFilters}>
+                    Сбросить фильтры
+                  </Button>
+                )
+              )
             }
           />
         ) : (
@@ -91,6 +88,15 @@ export function OrdersPage() {
               orders={data?.items}
               isLoading={isLoading}
               isRefreshing={isFetching && !isLoading}
+              sort={sort}
+              onSortChange={(next) =>
+                setSearchParams(
+                  withParams(searchParams, {
+                    sort: next === DEFAULT_SORT ? undefined : next,
+                    page: undefined,
+                  }),
+                )
+              }
             />
             {data && (
               <Pagination

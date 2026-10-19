@@ -33,3 +33,18 @@ export function periodRange(days: number, now: Date = new Date()): DateRange {
   const dateTo = todayIso(now);
   return { dateFrom: addDays(dateTo, -(days - 1)), dateTo };
 }
+
+/** Index 1..7 = ISO weekday. */
+export const WEEKDAYS_SHORT = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
+
+export function isoWeekday(isoDate: string): number {
+  return parseIsoDate(isoDate).getUTCDay() || 7;
+}
+
+export function isIsoDate(value: string | null): value is string {
+  return (
+    value !== null &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    !Number.isNaN(parseIsoDate(value).getTime())
+  );
+}
